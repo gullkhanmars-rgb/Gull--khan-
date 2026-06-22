@@ -1,0 +1,562 @@
+import { useState, useEffect } from "react";
+
+const QUESTIONS = [
+  {
+    id: 1,
+    label: "Opt-in",
+    requirement: 'Need a clear "Yes" from the customer.',
+    icon: "✓",
+  },
+  {
+    id: 2,
+    label: "Make, Model, Years",
+    requirement: "Vehicle make, model, and year should be confirmed.",
+    icon: "🚗",
+  },
+  {
+    id: 3,
+    label: "Insurance Provider Name",
+    requirement: "Current insurance provider should be confirmed.",
+    icon: "🛡",
+  },
+  {
+    id: 4,
+    label: "DUI & Accident",
+    requirement:
+      "Must be asked and confirmed; if Yes, ask for the Active Driving License.",
+    icon: "⚠",
+  },
+  {
+    id: 5,
+    label: "ZipCode",
+    requirement: "ZIP code should be confirmed for the customer's current address/location.",
+    icon: "📍",
+  },
+  {
+    id: 6,
+    label: "DOB",
+    requirement:
+      "Confirm the active driver's DOB (must meet campaign eligibility requirements).",
+    icon: "📅",
+  },
+  {
+    id: 7,
+    label: "Name",
+    requirement: "Customer's full name should be confirmed.",
+    icon: "👤",
+  },
+  {
+    id: 8,
+    label: "Disclaimer",
+    requirement: 'Need a clear "Yes" after the disclaimer.',
+    icon: "📋",
+  },
+  {
+    id: 9,
+    label: "Inbound",
+    requirement: 'Need a clear "Yes" confirming inbound verification requirement.',
+    icon: "📞",
+  },
+  {
+    id: 10,
+    label: "Time Consent",
+    requirement: 'Need a clear "Yes" before proceeding/transfer.',
+    icon: "⏱",
+  },
+  {
+    id: 11,
+    label: "Social Media",
+    requirement: "Mention it according to the given script.",
+    icon: "📱",
+  },
+  {
+    id: 12,
+    label: "Preparation About Transfer",
+    requirement: "Should explain the transfer protocol before transferring.",
+    icon: "🔄",
+  },
+];
+
+export default function ComplianceForm() {
+  const [screen, setScreen] = useState("phone"); // "phone" | "checklist" | "saved"
+  const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [checked, setChecked] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [savedEntries, setSavedEntries] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [tooltip, setTooltip] = useState(null);
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  async function loadHistory() {
+    try {
+      const keys = await window.storage.list("compliance:");
+      const entries = [];
+      for (const key of keys.keys || []) {
+        try {
+          const r = await window.storage.get(key);
+          if (r) entries.push(JSON.parse(r.value));
+        } catch {}
+      }
+      entries.sort((a, b) => b.timestamp - a.timestamp);
+      setSavedEntries(entries);
+    } catch {}
+  }
+
+  function validatePhone(val) {
+    const digits = val.replace(/\D/g, "");
+    return digits.length >= 7 && digits.length <= 15;
+  }
+
+  function handlePhoneSubmit() {
+    if (!validatePhone(phone)) {
+      setPhoneError("Please enter a valid phone number (7–15 digits).");
+      return;
+    }
+    setPhoneError("");
+    setChecked({});
+    setScreen("checklist");
+  }
+
+  function toggle(id) {
+    setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  const checkedCount = Object.values(checked).filter(Boolean).length;
+  const progress = Math.round((checkedCount / QUESTIONS.length) * 100);
+  const allChecked = checkedCount === QUESTIONS.length;
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const entry = {
+        phone,
+        checked,
+        checkedCount,
+        total: QUESTIONS.length,
+        timestamp: Date.now(),
+        date: new Date().toLocaleString(),
+      };
+      const key = `compliance:${phone}:${Date.now()}`;
+      await window.storage.set(key, JSON.stringify(entry));
+      await loadHistory();
+      setScreen("saved");
+    } catch (e) {
+      alert("Failed to save. Please try again.");
+    }
+    setSaving(false);
+  }
+
+  function handleReset() {
+    setPhone("");
+    setChecked({});
+    setScreen("phone");
+  }
+
+  const styles = {
+    root: {
+      minHeight: "100vh",
+      background: "linear-gradient(135deg, #0d1f2d 0%, #0a2a2a 50%, #0d1f2d 100%)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      fontFamily: "'Segoe UI', sans-serif",
+      padding: "24px 16px",
+      boxSizing: "border-box",
+    },
+    card: {
+      background: "rgba(255,255,255,0.05)",
+      border: "1px solid rgba(0,210,150,0.2)",
+      borderRadius: "18px",
+      padding: "32px 28px",
+      width: "100%",
+      maxWidth: "520px",
+      backdropFilter: "blur(12px)",
+      boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+    },
+    title: {
+      color: "#00e5aa",
+      fontSize: "22px",
+      fontWeight: "700",
+      textAlign: "center",
+      marginBottom: "6px",
+      letterSpacing: "0.5px",
+    },
+    subtitle: {
+      color: "#5de0c0",
+      fontSize: "13px",
+      textAlign: "center",
+      marginBottom: "28px",
+    },
+    label: {
+      color: "#a0c4bb",
+      fontSize: "13px",
+      marginBottom: "8px",
+      display: "block",
+    },
+    input: {
+      width: "100%",
+      padding: "14px 16px",
+      borderRadius: "10px",
+      border: "1.5px solid rgba(0,210,150,0.3)",
+      background: "rgba(255,255,255,0.08)",
+      color: "#fff",
+      fontSize: "16px",
+      outline: "none",
+      boxSizing: "border-box",
+      transition: "border-color 0.2s",
+    },
+    error: {
+      color: "#ff6b6b",
+      fontSize: "12px",
+      marginTop: "6px",
+    },
+    btn: {
+      width: "100%",
+      padding: "14px",
+      borderRadius: "10px",
+      background: "linear-gradient(90deg, #00e5aa, #00c896)",
+      color: "#0a2a2a",
+      fontSize: "15px",
+      fontWeight: "700",
+      border: "none",
+      cursor: "pointer",
+      marginTop: "20px",
+      letterSpacing: "0.5px",
+      transition: "opacity 0.2s, transform 0.1s",
+    },
+    progressBar: {
+      width: "100%",
+      height: "6px",
+      borderRadius: "99px",
+      background: "rgba(255,255,255,0.1)",
+      marginBottom: "20px",
+      overflow: "hidden",
+    },
+    progressFill: {
+      height: "100%",
+      borderRadius: "99px",
+      background: "linear-gradient(90deg, #00e5aa, #00c896)",
+      transition: "width 0.3s ease",
+    },
+    row: {
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+      padding: "12px 14px",
+      borderRadius: "10px",
+      background: "rgba(255,255,255,0.04)",
+      border: "1px solid rgba(0,210,150,0.1)",
+      marginBottom: "8px",
+      cursor: "pointer",
+      transition: "background 0.15s, border-color 0.15s",
+      position: "relative",
+    },
+    rowChecked: {
+      background: "rgba(0,229,170,0.08)",
+      border: "1px solid rgba(0,229,170,0.3)",
+    },
+    checkbox: {
+      width: "22px",
+      height: "22px",
+      minWidth: "22px",
+      borderRadius: "6px",
+      border: "2px solid rgba(0,229,170,0.5)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      transition: "background 0.15s",
+      flexShrink: 0,
+    },
+    checkboxChecked: {
+      background: "#00e5aa",
+      border: "2px solid #00e5aa",
+    },
+    checkmark: {
+      color: "#0a2a2a",
+      fontSize: "14px",
+      fontWeight: "800",
+    },
+    qLabel: {
+      color: "#d8f5ee",
+      fontSize: "14px",
+      fontWeight: "500",
+      flex: 1,
+    },
+    qLabelChecked: {
+      color: "#00e5aa",
+    },
+    infoBtn: {
+      background: "transparent",
+      border: "1px solid rgba(0,210,150,0.3)",
+      borderRadius: "50%",
+      width: "22px",
+      height: "22px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "#5de0c0",
+      fontSize: "12px",
+      cursor: "pointer",
+      flexShrink: 0,
+    },
+    tooltipBox: {
+      position: "absolute",
+      right: "40px",
+      top: "50%",
+      transform: "translateY(-50%)",
+      background: "#0a2a2a",
+      border: "1px solid rgba(0,229,170,0.3)",
+      borderRadius: "8px",
+      padding: "8px 12px",
+      color: "#9ee8d4",
+      fontSize: "12px",
+      zIndex: 10,
+      maxWidth: "200px",
+      lineHeight: "1.4",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+      pointerEvents: "none",
+    },
+    phoneTag: {
+      color: "#5de0c0",
+      fontSize: "12px",
+      textAlign: "center",
+      marginBottom: "16px",
+    },
+    actions: {
+      display: "flex",
+      gap: "10px",
+      marginTop: "20px",
+    },
+    btnOutline: {
+      flex: 1,
+      padding: "12px",
+      borderRadius: "10px",
+      background: "transparent",
+      color: "#00e5aa",
+      fontSize: "14px",
+      fontWeight: "600",
+      border: "1.5px solid rgba(0,229,170,0.4)",
+      cursor: "pointer",
+      transition: "background 0.15s",
+    },
+    btnFill: {
+      flex: 2,
+      padding: "12px",
+      borderRadius: "10px",
+      background: "linear-gradient(90deg, #00e5aa, #00c896)",
+      color: "#0a2a2a",
+      fontSize: "14px",
+      fontWeight: "700",
+      border: "none",
+      cursor: "pointer",
+      transition: "opacity 0.2s",
+      opacity: 1,
+    },
+    successIcon: {
+      width: "64px",
+      height: "64px",
+      borderRadius: "50%",
+      background: "rgba(0,229,170,0.15)",
+      border: "2px solid #00e5aa",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      margin: "0 auto 20px",
+      fontSize: "28px",
+    },
+    historyToggle: {
+      color: "#5de0c0",
+      fontSize: "13px",
+      background: "transparent",
+      border: "none",
+      cursor: "pointer",
+      textDecoration: "underline",
+      marginTop: "12px",
+      display: "block",
+      width: "100%",
+      textAlign: "center",
+    },
+    historyItem: {
+      padding: "10px 14px",
+      borderRadius: "8px",
+      background: "rgba(255,255,255,0.04)",
+      border: "1px solid rgba(0,210,150,0.1)",
+      marginBottom: "8px",
+      fontSize: "13px",
+    },
+    badge: {
+      display: "inline-block",
+      padding: "2px 8px",
+      borderRadius: "99px",
+      fontSize: "11px",
+      fontWeight: "700",
+    },
+    topBar: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: "20px",
+    },
+  };
+
+  if (screen === "phone") {
+    return (
+      <div style={styles.root}>
+        <div style={styles.card}>
+          <div style={styles.title}>Compliance Check</div>
+          <div style={styles.subtitle}>Auto Insurance Quality Control</div>
+
+          <label style={styles.label}>Enter Customer's Phone Number:</label>
+          <input
+            style={styles.input}
+            type="tel"
+            placeholder="e.g. 8505972892"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handlePhoneSubmit()}
+            autoFocus
+          />
+          {phoneError && <div style={styles.error}>{phoneError}</div>}
+
+          <button style={styles.btn} onClick={handlePhoneSubmit}>
+            Submit →
+          </button>
+
+          {savedEntries.length > 0 && (
+            <>
+              <button style={styles.historyToggle} onClick={() => setShowHistory(!showHistory)}>
+                {showHistory ? "Hide" : "View"} saved responses ({savedEntries.length})
+              </button>
+              {showHistory && (
+                <div style={{ marginTop: "12px", maxHeight: "200px", overflowY: "auto" }}>
+                  {savedEntries.map((e, i) => (
+                    <div key={i} style={styles.historyItem}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "#00e5aa", fontWeight: "600" }}>{e.phone}</span>
+                        <span
+                          style={{
+                            ...styles.badge,
+                            background: e.checkedCount === e.total ? "rgba(0,229,170,0.2)" : "rgba(255,200,50,0.2)",
+                            color: e.checkedCount === e.total ? "#00e5aa" : "#ffcc33",
+                          }}
+                        >
+                          {e.checkedCount}/{e.total}
+                        </span>
+                      </div>
+                      <div style={{ color: "#5de0c0", fontSize: "11px", marginTop: "4px" }}>{e.date}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === "saved") {
+    return (
+      <div style={styles.root}>
+        <div style={styles.card}>
+          <div style={styles.successIcon}>✓</div>
+          <div style={styles.title}>Response Saved!</div>
+          <div style={{ color: "#9ee8d4", textAlign: "center", fontSize: "14px", marginBottom: "8px" }}>
+            Phone: <strong style={{ color: "#00e5aa" }}>{phone}</strong>
+          </div>
+          <div style={{ color: "#9ee8d4", textAlign: "center", fontSize: "14px", marginBottom: "24px" }}>
+            {checkedCount} of {QUESTIONS.length} items confirmed
+          </div>
+          <div style={styles.progressBar}>
+            <div style={{ ...styles.progressFill, width: `${progress}%` }} />
+          </div>
+          <div style={{ color: allChecked ? "#00e5aa" : "#ffcc33", textAlign: "center", fontSize: "13px", marginBottom: "20px" }}>
+            {allChecked ? "✓ All compliance items confirmed" : `⚠ ${QUESTIONS.length - checkedCount} item(s) not confirmed`}
+          </div>
+          <div style={styles.actions}>
+            <button style={styles.btnOutline} onClick={() => setScreen("checklist")}>← Back</button>
+            <button style={styles.btnFill} onClick={handleReset}>New Customer →</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Checklist screen
+  return (
+    <div style={styles.root}>
+      <div style={styles.card}>
+        <div style={styles.topBar}>
+          <div style={{ color: "#00e5aa", fontSize: "18px", fontWeight: "700" }}>Compliance Checks</div>
+          <button
+            style={{ ...styles.btnOutline, flex: "unset", padding: "6px 14px", fontSize: "12px" }}
+            onClick={handleReset}
+          >
+            Reset
+          </button>
+        </div>
+
+        <div style={styles.phoneTag}>Phone Number: {phone}</div>
+
+        <div style={styles.progressBar}>
+          <div style={{ ...styles.progressFill, width: `${progress}%` }} />
+        </div>
+
+        <div style={{ color: "#5de0c0", fontSize: "12px", textAlign: "right", marginBottom: "14px", marginTop: "-14px" }}>
+          {checkedCount}/{QUESTIONS.length} confirmed
+        </div>
+
+        <div style={{ maxHeight: "420px", overflowY: "auto", paddingRight: "4px" }}>
+          {QUESTIONS.map((q) => {
+            const isChecked = !!checked[q.id];
+            const showTip = tooltip === q.id;
+            return (
+              <div
+                key={q.id}
+                style={{ ...styles.row, ...(isChecked ? styles.rowChecked : {}) }}
+                onClick={() => toggle(q.id)}
+              >
+                <div style={{ ...styles.checkbox, ...(isChecked ? styles.checkboxChecked : {}) }}>
+                  {isChecked && <span style={styles.checkmark}>✓</span>}
+                </div>
+                <span style={{ ...styles.qLabel, ...(isChecked ? styles.qLabelChecked : {}) }}>
+                  <span style={{ color: "#5de0c0", marginRight: "6px", fontSize: "12px" }}>{q.id}.</span>
+                  {q.label}
+                </span>
+                <button
+                  style={styles.infoBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTooltip(showTip ? null : q.id);
+                  }}
+                  title="Quality requirement"
+                >
+                  i
+                </button>
+                {showTip && (
+                  <div style={styles.tooltipBox}>{q.requirement}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={styles.actions}>
+          <button style={styles.btnOutline} onClick={() => setScreen("phone")}>← Back</button>
+          <button
+            style={{ ...styles.btnFill, opacity: saving ? 0.7 : 1 }}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save Response ✓"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
